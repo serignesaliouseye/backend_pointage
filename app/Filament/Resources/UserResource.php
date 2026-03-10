@@ -4,11 +4,21 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
-use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Grid;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\DatePicker;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Actions\EditAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Illuminate\Support\Facades\Hash;
 
 class UserResource extends Resource
@@ -29,30 +39,30 @@ class UserResource extends Resource
     {
         return $schema
             ->components([
-                Forms\Components\Section::make('Informations personnelles')
+                Section::make('Informations personnelles')
                     ->schema([
-                        Forms\Components\Grid::make(2)
+                        Grid::make(2)
                             ->schema([
-                                Forms\Components\TextInput::make('nom')
+                                TextInput::make('nom')
                                     ->required()
                                     ->maxLength(255),
 
-                                Forms\Components\TextInput::make('prenom')
+                                TextInput::make('prenom')
                                     ->required()
                                     ->maxLength(255),
 
-                                Forms\Components\TextInput::make('email')
+                                TextInput::make('email')
                                     ->email()
                                     ->required()
                                     ->maxLength(255)
                                     ->unique(ignoreRecord: true),
 
-                                Forms\Components\TextInput::make('telephone')
+                                TextInput::make('telephone')
                                     ->tel()
                                     ->maxLength(20),
                             ]),
 
-                        Forms\Components\FileUpload::make('photo')
+                        FileUpload::make('photo')
                             ->image()
                             ->directory('photos')
                             ->visibility('public')
@@ -61,11 +71,11 @@ class UserResource extends Resource
                             ->maxSize(2048),
                     ]),
 
-                Forms\Components\Section::make('Role et statut')
+                Section::make('Role et statut')
                     ->schema([
-                        Forms\Components\Grid::make(2)
+                        Grid::make(2)
                             ->schema([
-                                Forms\Components\Select::make('role')
+                                Select::make('role')
                                     ->options([
                                         'admin' => 'Administrateur',
                                         'coach' => 'Coach',
@@ -75,7 +85,7 @@ class UserResource extends Resource
                                     ->native(false)
                                     ->live(),
 
-                                Forms\Components\Toggle::make('est_actif')
+                                Toggle::make('est_actif')
                                     ->label('Compte actif')
                                     ->default(true)
                                     ->onColor('success')
@@ -83,20 +93,20 @@ class UserResource extends Resource
                             ]),
                     ]),
 
-                Forms\Components\Section::make('Informations stagiaire')
+                Section::make('Informations stagiaire')
                     ->schema([
-                        Forms\Components\Grid::make(2)
+                        Grid::make(2)
                             ->schema([
-                                Forms\Components\TextInput::make('promotion')
+                                TextInput::make('promotion')
                                     ->visible(fn (callable $get) => $get('role') === 'stagiaire'),
 
-                                Forms\Components\DatePicker::make('date_debut')
+                                DatePicker::make('date_debut')
                                     ->visible(fn (callable $get) => $get('role') === 'stagiaire'),
 
-                                Forms\Components\DatePicker::make('date_fin')
+                                DatePicker::make('date_fin')
                                     ->visible(fn (callable $get) => $get('role') === 'stagiaire'),
 
-                                Forms\Components\Select::make('coachs')
+                                Select::make('coachs')
                                     ->multiple()
                                     ->relationship('coachs', 'email')
                                     ->preload()
@@ -107,9 +117,9 @@ class UserResource extends Resource
                     ->visible(fn (callable $get) => $get('role') === 'stagiaire')
                     ->collapsible(),
 
-                Forms\Components\Section::make('Securite')
+                Section::make('Securite')
                     ->schema([
-                        Forms\Components\TextInput::make('password')
+                        TextInput::make('password')
                             ->password()
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
                             ->dehydrated(fn ($state) => filled($state))
@@ -185,13 +195,12 @@ class UserResource extends Resource
                     ->placeholder('Tous'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                EditAction::make(),
+                DeleteAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -206,13 +215,7 @@ class UserResource extends Resource
         return [
             'index' => Pages\ListUsers::route('/'),
             'create' => Pages\CreateUser::route('/create'),
-            'view' => Pages\ViewUser::route('/{record}'),
             'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
-    }
-
-    public static function getNavigationBadge(): ?string
-    {
-        return static::getModel()::count();
     }
 }

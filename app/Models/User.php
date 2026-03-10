@@ -1,27 +1,42 @@
 <?php
+
 namespace App\Models;
 
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasName;
+use Filament\Panel;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser, HasName
 {
     use HasApiTokens, Notifiable;
 
     protected $fillable = [
-        'nom', 'prenom', 'email', 'password', 'role', 'telephone',
+        'nom', 'prenom', 'email','password', 'role', 'telephone',
         'photo', 'promotion', 'date_debut', 'date_fin', 'est_actif'
     ];
 
     protected $hidden = ['password', 'remember_token'];
-    
+
     protected $casts = [
         'email_verified_at' => 'datetime',
         'date_debut' => 'date',
         'date_fin' => 'date',
         'est_actif' => 'boolean'
     ];
+
+    // Filament
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function getFilamentName(): string
+    {
+        return $this->prenom . ' ' . $this->nom;
+    }
 
     // Relations
     public function stagiaires()
