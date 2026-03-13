@@ -7,14 +7,18 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasName;
+use App\Traits\HasNotifications;
 use Filament\Panel;
 
 class User extends Authenticatable implements FilamentUser, HasName
 {
     use HasApiTokens, Notifiable;
 
+    // Empêche le chargement automatique des relations
+    protected $with = [];
+
     protected $fillable = [
-        'nom', 'prenom', 'email','password', 'role', 'telephone',
+        'nom', 'prenom', 'email', 'password', 'role', 'telephone',
         'photo', 'promotion', 'date_debut', 'date_fin', 'est_actif'
     ];
 
@@ -64,23 +68,22 @@ class User extends Authenticatable implements FilamentUser, HasName
         return $this->hasMany(Sanction::class, 'coach_id');
     }
 
-    // Méthodes utilitaires
-    public function estAdmin()
+    public function estAdmin(): bool
     {
         return $this->role === 'admin';
     }
 
-    public function estCoach()
+    public function estCoach(): bool
     {
         return $this->role === 'coach';
     }
 
-    public function estStagiaire()
+    public function estStagiaire(): bool
     {
         return $this->role === 'stagiaire';
     }
 
-    public function getNomCompletAttribute()
+    public function getNomCompletAttribute(): string
     {
         return "{$this->prenom} {$this->nom}";
     }

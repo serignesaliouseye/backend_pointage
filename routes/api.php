@@ -29,6 +29,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/pointages/{id}/corriger', [CoachController::class, 'corrigerPointage']);
         Route::post('/sanctions', [CoachController::class, 'sanctionner']);
     });
+
+    // Notifications
+    Route::middleware('auth:sanctum')->prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::get('/unread', [NotificationController::class, 'unread']);
+        Route::post('/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+        Route::delete('/{id}', [NotificationController::class, 'destroy']);
+        Route::delete('/all', [NotificationController::class, 'destroyAll']);
+    });
     
     // Routes pour les admins
     Route::middleware('role:admin')->prefix('admin')->group(function () {
