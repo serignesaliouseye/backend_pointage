@@ -65,6 +65,7 @@ class UserResource extends Resource
                         FileUpload::make('photo')
                             ->image()
                             ->directory('photos')
+                            ->disk('public')
                             ->visibility('public')
                             ->imageEditor()
                             ->circleCropper()

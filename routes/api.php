@@ -1,9 +1,11 @@
 <?php
-use App\Http\Controllers\API\AuthController;
-use App\Http\Controllers\API\PointageController;
-use App\Http\Controllers\API\CoachController;
-use App\Http\Controllers\API\AdminController;
-use App\Http\Controllers\API\QrCodeController;
+
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\PointageController;
+use App\Http\Controllers\Api\CoachController;
+use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\QrCodeController;
+use App\Http\Controllers\Api\NotificationController; // ← AJOUT IMPORTANT
 use Illuminate\Support\Facades\Route;
 
 // Routes publiques
@@ -31,7 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Notifications
-    Route::middleware('auth:sanctum')->prefix('notifications')->group(function () {
+    Route::prefix('notifications')->group(function () { // ← Supprimé le doublon middleware
         Route::get('/', [NotificationController::class, 'index']);
         Route::get('/unread', [NotificationController::class, 'unread']);
         Route::post('/{id}/read', [NotificationController::class, 'markAsRead']);
