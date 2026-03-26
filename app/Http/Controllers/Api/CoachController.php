@@ -10,6 +10,9 @@ use Illuminate\Http\Request;
 
 class CoachController extends Controller
 {
+    /**
+     * Récupérer la liste des stagiaires du coach connecté
+     */
     public function mesStagiaires(Request $request)
     {
         $coach = $request->user();
@@ -45,6 +48,9 @@ class CoachController extends Controller
         return response()->json($stagiaires);
     }
 
+    /**
+     * Récupérer les pointages des stagiaires du coach
+     */
     public function mesPointages(Request $request)
     {
         $coach = $request->user();
@@ -67,6 +73,40 @@ class CoachController extends Controller
         return response()->json($query->paginate(20));
     }
 
+    /**
+     * Récupérer les pointages par date
+     */
+    public function pointagesParDate(Request $request, $date)
+    {
+        $coach = $request->user();
+        $stagiaireIds = $coach->stagiaires()->pluck('users.id');
+
+        $pointages = Pointage::whereIn('user_id', $stagiaireIds)
+            ->whereDate('date', $date)
+            ->with('user')
+            ->get();
+
+        return response()->json($pointages);
+    }
+
+    /**
+     * Détail d'un pointage spécifique
+     */
+    public function detailPointage(Request $request, $pointageId)
+    {
+        $coach = $request->user();
+        $stagiaireIds = $coach->stagiaires()->pluck('users.id');
+
+        $pointage = Pointage::whereIn('user_id', $stagiaireIds)
+            ->with('user')
+            ->findOrFail($pointageId);
+
+        return response()->json($pointage);
+    }
+
+    /**
+     * Détail d'un stagiaire spécifique
+     */
     public function detailStagiaire(Request $request, $stagiaireId)
     {
         $coach = $request->user();
@@ -82,9 +122,16 @@ class CoachController extends Controller
         ]);
     }
 
+    /**
+     * Corriger un pointage
+     */
     public function corrigerPointage(Request $request, $pointageId)
     {
-        $pointage = Pointage::findOrFail($pointageId);
+        $coach = $request->user();
+        $stagiaireIds = $coach->stagiaires()->pluck('users.id');
+
+        $pointage = Pointage::whereIn('user_id', $stagiaireIds)
+            ->findOrFail($pointageId);
 
         $request->validate([
             'statut' => 'required|in:present,retard,absent,justifie',
@@ -105,7 +152,37 @@ class CoachController extends Controller
         return response()->json($pointage);
     }
 
-    // ✅ Toutes les sanctions du coach
+    /**
+     * Ajouter un justificatif à un pointage
+     */
+    public function ajouterJustificatif(Request $request, $pointageId)
+    {
+        $coach = $request->user();
+        $stagiaireIds = $coach->stagiaires()->pluck('users.id');
+
+        $pointage = Pointage::whereIn('user_id', $stagiaireIds)
+            ->findOrFail($pointageId);
+
+        $request->validate([
+            'justificatif' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120'
+        ]);
+
+        $path = $request->file('justificatif')->store('justificatifs', 'public');
+
+        $pointage->update([
+            'justificatif' => $path,
+            'statut' => 'justifie'
+        ]);
+
+        return response()->json([
+            'message' => 'Justificatif ajouté avec succès',
+            'pointage' => $pointage
+        ]);
+    }
+
+    /**
+     * Récupérer toutes les sanctions du coach (pour le dashboard coach)
+     */
     public function mesSanctions(Request $request)
     {
         $coach = $request->user();
@@ -119,6 +196,71 @@ class CoachController extends Controller
         return response()->json($sanctions);
     }
 
+    /**
+     * Récupérer les sanctions du stagiaire connecté (pour l'API mobile)
+     */
+    public function mesSanctionsStagiaire(Request $request)
+    {
+        $user = $request->user();
+
+        // Vérifier que l'utilisateur est bien un stagiaire
+        if ($user->role !== 'stagiaire') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Accès non autorisé'
+            ], 403);
+        }
+
+        $sanctions = Sanction::with('coach')
+            ->where('stagiaire_id', $user->id)
+            ->orderBy('date_sanction', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $sanctions
+        ]);
+    }
+
+    /**
+     * Marquer une sanction comme lue (pour le stagiaire)
+     */
+    public function marquerSanctionCommeLue(Request $request, $sanctionId)
+    {
+        $user = $request->user();
+
+        // Vérifier que l'utilisateur est un stagiaire
+        if ($user->role !== 'stagiaire') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Accès non autorisé'
+            ], 403);
+        }
+
+        // Récupérer la sanction du stagiaire
+        $sanction = Sanction::where('stagiaire_id', $user->id)
+            ->where('id', $sanctionId)
+            ->first();
+
+        if (!$sanction) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sanction non trouvée'
+            ], 404);
+        }
+
+        // Marquer comme lue
+        $sanction->update(['est_lue' => true]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Sanction marquée comme lue'
+        ]);
+    }
+
+    /**
+     * Sanctionner un stagiaire
+     */
     public function sanctionner(Request $request)
     {
         $request->validate([
@@ -142,10 +284,15 @@ class CoachController extends Controller
             'date_fin_suspension' => $request->date_fin_suspension
         ]);
 
+        // Envoyer une notification au stagiaire (décommentez quand la notification sera prête)
+        // $stagiaire->notify(new \App\Notifications\SanctionNotification($sanction));
+
         return response()->json($sanction, 201);
     }
 
-    // ✅ Modifier une sanction
+    /**
+     * Modifier une sanction
+     */
     public function modifierSanction(Request $request, $sanctionId)
     {
         $sanction = Sanction::where('coach_id', $request->user()->id)
@@ -165,7 +312,9 @@ class CoachController extends Controller
         return response()->json($sanction);
     }
 
-    // ✅ Supprimer une sanction
+    /**
+     * Supprimer une sanction
+     */
     public function supprimerSanction(Request $request, $sanctionId)
     {
         $sanction = Sanction::where('coach_id', $request->user()->id)
@@ -176,6 +325,9 @@ class CoachController extends Controller
         return response()->json(['message' => 'Sanction supprimée avec succès']);
     }
 
+    /**
+     * Récupérer les sanctions d'un stagiaire spécifique
+     */
     public function sanctionsDuStagiaire(Request $request, $stagiaireId)
     {
         $coach = $request->user();
@@ -188,6 +340,9 @@ class CoachController extends Controller
         return response()->json($sanctions);
     }
 
+    /**
+     * Calculer la moyenne de présence d'un stagiaire
+     */
     private function calculerMoyenne(int $stagiaireId): float
     {
         $total = Pointage::where('user_id', $stagiaireId)->count();
