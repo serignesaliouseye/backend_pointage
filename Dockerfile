@@ -1,4 +1,5 @@
-FROM php:8.2-apache
+# ✅ Change php:8.2-apache en php:8.4-apache
+FROM php:8.4-apache
 
 # Installation des dépendances
 RUN apt-get update && apt-get install -y \
@@ -42,7 +43,7 @@ RUN chown -R www-data:www-data storage bootstrap/cache \
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# ✅ Port 80 (Apache par défaut)
+# ✅ Port 80
 EXPOSE 80
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
