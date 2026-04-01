@@ -1,36 +1,48 @@
-FROM php:8.4-apache
+FROM php:8.2-apache
 
-# Installer les extensions PHP
+# Installation des dépendances
 RUN apt-get update && apt-get install -y \
     git unzip curl \
     libpq-dev libzip-dev libpng-dev libonig-dev libicu-dev \
-    && docker-php-ext-install pdo pdo_mysql mysqli zip bcmath gd intl
+    && docker-php-ext-install pdo pdo_mysql mysqli zip bcmath gd intl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Installer Composer
+# Installation de Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Définir le répertoire de travail
-WORKDIR /var/www/html
+# ✅ Configuration Apache vers public/
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 
-# Copier le code source
-COPY . .
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
+    /etc/apache2/sites-available/*.conf \
+    /etc/apache2/apache2.conf \
+    /etc/apache2/conf-available/*.conf
 
-# Installer les dépendances
-RUN composer install --no-dev --optimize-autoloader
-
-# Configurer les permissions
-RUN chown -R www-data:www-data storage bootstrap/cache && \
-    chmod -R 775 storage bootstrap/cache
-
-# Activer mod_rewrite
+# ✅ Activer mod_rewrite
 RUN a2enmod rewrite
 
-# Copier le script d'entrypoint
+# ✅ Autoriser .htaccess
+RUN echo '<Directory /var/www/html/public>\n\
+    Options Indexes FollowSymLinks\n\
+    AllowOverride All\n\
+    Require all granted\n\
+</Directory>' >> /etc/apache2/apache2.conf
+
+WORKDIR /var/www/html
+COPY . .
+
+# Installation des dépendances
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# Permissions
+RUN chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
+# Copie entrypoint
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Exposer le port
-EXPOSE 8080
+# ✅ Port 80 (Apache par défaut)
+EXPOSE 80
 
-# Entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
