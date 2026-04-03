@@ -7,80 +7,118 @@ echo "========================================="
 echo ""
 echo "📦 Version PHP: $(php -v | head -1)"
 
-# ✅ Crée le .env AVANT tout
-if [ ! -f /var/www/html/.env ]; then
-    echo "📝 Création du fichier .env à partir de .env.example..."
-    cp /var/www/html/.env.example /var/www/html/.env
+APP_DIR=/var/www/html
+ENV_FILE=$APP_DIR/.env
+
+# ✅ Créer .env si inexistant
+if [ ! -f "$ENV_FILE" ]; then
+    echo "📝 Création du fichier .env..."
+    cp $APP_DIR/.env.example $ENV_FILE
     echo "✅ .env créé"
 fi
 
-# ✅ Injecter les variables d'environnement dans .env
-echo "⚙️  Configuration des variables..."
+echo ""
+echo "⚙️ Configuration des variables..."
 
-# App
-[ ! -z "$APP_KEY" ] && sed -i "s|APP_KEY=.*|APP_KEY=${APP_KEY}|g" /var/www/html/.env
-[ ! -z "$APP_ENV" ] && sed -i "s|APP_ENV=.*|APP_ENV=${APP_ENV}|g" /var/www/html/.env
-[ ! -z "$APP_DEBUG" ] && sed -i "s|APP_DEBUG=.*|APP_DEBUG=${APP_DEBUG}|g" /var/www/html/.env
-[ ! -z "$APP_URL" ] && sed -i "s|APP_URL=.*|APP_URL=${APP_URL}|g" /var/www/html/.env
+# ======================
+# APP CONFIG
+# ======================
+sed -i "s|APP_ENV=.*|APP_ENV=${APP_ENV:-production}|g" $ENV_FILE
+sed -i "s|APP_DEBUG=.*|APP_DEBUG=${APP_DEBUG:-false}|g" $ENV_FILE
+sed -i "s|APP_URL=.*|APP_URL=${APP_URL}|g" $ENV_FILE
 
-# Database (PostgreSQL Aiven)
+# ======================
+# DATABASE CONFIG (Aiven PostgreSQL)
+# ======================
+echo ""
 echo "📝 Configuration de la base de données..."
 
-# Forcer DB_CONNECTION à pgsql (correction importante)
-sed -i "s|DB_CONNECTION=.*|DB_CONNECTION=pgsql|g" /var/www/html/.env
+sed -i "s|DB_CONNECTION=.*|DB_CONNECTION=pgsql|g" $ENV_FILE
+sed -i "s|DB_HOST=.*|DB_HOST=${DB_HOST}|g" $ENV_FILE
+sed -i "s|DB_PORT=.*|DB_PORT=${DB_PORT:-5432}|g" $ENV_FILE
+sed -i "s|DB_DATABASE=.*|DB_DATABASE=${DB_DATABASE}|g" $ENV_FILE
+sed -i "s|DB_USERNAME=.*|DB_USERNAME=${DB_USERNAME}|g" $ENV_FILE
+sed -i "s|DB_PASSWORD=.*|DB_PASSWORD=${DB_PASSWORD}|g" $ENV_FILE
 
-# Injecter les valeurs Render si elles existent
-[ ! -z "$DB_HOST" ] && sed -i "s|DB_HOST=.*|DB_HOST=${DB_HOST}|g" /var/www/html/.env
-[ ! -z "$DB_PORT" ] && sed -i "s|DB_PORT=.*|DB_PORT=${DB_PORT}|g" /var/www/html/.env
-[ ! -z "$DB_DATABASE" ] && sed -i "s|DB_DATABASE=.*|DB_DATABASE=${DB_DATABASE}|g" /var/www/html/.env
-[ ! -z "$DB_USERNAME" ] && sed -i "s|DB_USERNAME=.*|DB_USERNAME=${DB_USERNAME}|g" /var/www/html/.env
-[ ! -z "$DB_PASSWORD" ] && sed -i "s|DB_PASSWORD=.*|DB_PASSWORD=${DB_PASSWORD}|g" /var/www/html/.env
-
-# Ajouter PGSSLMODE pour Aiven (obligatoire)
-if grep -q "PGSSLMODE" /var/www/html/.env; then
-    sed -i "s|PGSSLMODE=.*|PGSSLMODE=${PGSSLMODE:-require}|g" /var/www/html/.env
+# SSL obligatoire pour Aiven
+if grep -q "PGSSLMODE" $ENV_FILE; then
+    sed -i "s|PGSSLMODE=.*|PGSSLMODE=${PGSSLMODE:-require}|g" $ENV_FILE
 else
-    echo "PGSSLMODE=${PGSSLMODE:-require}" >> /var/www/html/.env
+    echo "PGSSLMODE=${PGSSLMODE:-require}" >> $ENV_FILE
 fi
 
-# ✅ Debug: afficher les variables de base de données
+# ======================
+# DEBUG DB CONFIG
+# ======================
 echo ""
-echo "🔍 Vérification des variables de connexion à la base de données:"
-grep "^DB_" /var/www/html/.env
-grep "^PGSSLMODE" /var/www/html/.env
+echo "🔍 Vérification configuration DB:"
+grep "^DB_" $ENV_FILE
+grep "^PGSSLMODE" $ENV_FILE
 
-# ✅ Générer APP_KEY si manquante
+# ======================
+# APP KEY
+# ======================
 echo ""
-if grep -q "APP_KEY=$" /var/www/html/.env || grep -q "APP_KEY=your" /var/www/html/.env || ! grep -q "^APP_KEY=" /var/www/html/.env; then
+if ! grep -q "^APP_KEY=base64" $ENV_FILE; then
     echo "🔑 Génération de APP_KEY..."
     php artisan key:generate --force
 else
     echo "🔑 APP_KEY déjà configurée"
 fi
 
-# ✅ Tester la connexion à la base de données avant les migrations
+# ======================
+# CACHE CLEAR (important)
+# ======================
+echo ""
+echo "🧹 Nettoyage du cache Laravel..."
+php artisan config:clear
+php artisan cache:clear
+
+# ======================
+# TEST CONNEXION DB (réel)
+# ======================
 echo ""
 echo "🔌 Test de connexion à la base de données..."
-php artisan tinker --execute="echo 'Connexion réussie !' || exit(1)" 2>/dev/null || echo "⚠️  Avertissement: Impossible de tester la connexion"
 
-echo ""
-echo "🗄️  Exécution des migrations..."
-php artisan migrate --force || {
-    echo "❌ Erreur lors des migrations. Vérifiez les logs ci-dessus."
-    exit 1
+php artisan tinker --execute="
+try {
+    DB::connection()->getPdo();
+    echo 'Connexion DB OK';
+} catch (\Exception \$e) {
+    echo 'Erreur DB: ' . \$e->getMessage();
+    exit(1);
 }
+"
+
+# ======================
+# MIGRATIONS + SEED
+# ======================
+echo ""
+echo "🗄️ Exécution des migrations..."
+php artisan migrate --force
 
 echo ""
-echo "🔗 Création du lien symbolique..."
+echo "🌱 Exécution du seeder..."
+php artisan db:seed --force
+
+# ======================
+# STORAGE LINK
+# ======================
+echo ""
+echo "🔗 Création du lien storage..."
 php artisan storage:link || true
 
+# ======================
+# OPTIMISATION
+# ======================
 echo ""
-echo "⚙️  Optimisation de Laravel..."
+echo "⚡ Optimisation Laravel..."
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
 echo ""
+echo "========================================="
 echo "✅ Application prête !"
 echo "🌐 Lancement du serveur Apache..."
 echo "========================================="
