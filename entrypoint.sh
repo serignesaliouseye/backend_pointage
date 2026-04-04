@@ -28,11 +28,25 @@ sed -i "s|APP_DEBUG=.*|APP_DEBUG=${APP_DEBUG:-false}|g" $ENV_FILE
 sed -i "s|APP_URL=.*|APP_URL=${APP_URL}|g" $ENV_FILE
 
 # ======================
-# DATABASE CONFIG (Aiven PostgreSQL)
+# APP KEY - ✅ Corrigé : utilise la variable d'env si disponible
+# ======================
+echo ""
+if [ ! -z "$APP_KEY" ]; then
+    echo "🔑 APP_KEY trouvée dans les variables d'environnement..."
+    sed -i "s|APP_KEY=.*|APP_KEY=${APP_KEY}|g" $ENV_FILE
+    echo "🔑 APP_KEY configurée"
+elif ! grep -q "^APP_KEY=base64" $ENV_FILE; then
+    echo "🔑 Génération de APP_KEY..."
+    php artisan key:generate --force
+else
+    echo "🔑 APP_KEY déjà configurée"
+fi
+
+# ======================
+# DATABASE CONFIG
 # ======================
 echo ""
 echo "📝 Configuration de la base de données..."
-
 sed -i "s|DB_CONNECTION=.*|DB_CONNECTION=pgsql|g" $ENV_FILE
 sed -i "s|DB_HOST=.*|DB_HOST=${DB_HOST}|g" $ENV_FILE
 sed -i "s|DB_PORT=.*|DB_PORT=${DB_PORT:-5432}|g" $ENV_FILE
@@ -56,18 +70,7 @@ grep "^DB_" $ENV_FILE
 grep "^PGSSLMODE" $ENV_FILE
 
 # ======================
-# APP KEY
-# ======================
-echo ""
-if ! grep -q "^APP_KEY=base64" $ENV_FILE; then
-    echo "🔑 Génération de APP_KEY..."
-    php artisan key:generate --force
-else
-    echo "🔑 APP_KEY déjà configurée"
-fi
-
-# ======================
-# CACHE CLEAR (important)
+# CACHE CLEAR
 # ======================
 echo ""
 echo "🧹 Nettoyage du cache Laravel..."
@@ -75,11 +78,10 @@ php artisan config:clear
 php artisan cache:clear
 
 # ======================
-# TEST CONNEXION DB (réel)
+# TEST CONNEXION DB
 # ======================
 echo ""
 echo "🔌 Test de connexion à la base de données..."
-
 php artisan tinker --execute="
 try {
     DB::connection()->getPdo();
@@ -91,15 +93,25 @@ try {
 "
 
 # ======================
-# MIGRATIONS + SEED
+# MIGRATIONS
 # ======================
 echo ""
 echo "🗄️ Exécution des migrations..."
 php artisan migrate --force
 
+# ======================
+# SEEDER - ✅ Corrigé : ne tourne qu'une seule fois
+# ======================
 echo ""
-echo "🌱 Exécution du seeder..."
-php artisan db:seed --force
+echo "🌱 Vérification du seeder..."
+USER_COUNT=$(php artisan tinker --execute="echo App\Models\User::count();" 2>/dev/null | tail -1)
+
+if [ "$USER_COUNT" = "0" ] || [ -z "$USER_COUNT" ]; then
+    echo "🌱 Exécution du seeder..."
+    php artisan db:seed --force
+else
+    echo "✅ Base de données déjà peuplée ($USER_COUNT utilisateurs)"
+fi
 
 # ======================
 # STORAGE LINK
