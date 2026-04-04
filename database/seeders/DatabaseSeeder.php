@@ -10,39 +10,56 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Créer un admin
-        User::create([
-            'nom' => 'Admin',
-            'prenom' => 'Super',
-            'email' => 'admin@pointage.com',
-            'password' => Hash::make('password'),
-            'role' => 'admin',
-            'est_actif' => true
-        ]);
+        // ✅ Admin
+        User::firstOrCreate(
+            ['email' => 'admin@pointage.com'],
+            [
+                'nom' => 'Admin',
+                'prenom' => 'Super',
+                'password' => Hash::make('Admin@2026!'),
+                'role' => 'admin',
+                'est_actif' => true,
+            ]
+        );
 
-        // Créer un coach
-        $coach = User::create([
-            'nom' => 'Martin',
-            'prenom' => 'Sophie',
-            'email' => 'coach@pointage.com',
-            'password' => Hash::make('password'),
-            'role' => 'coach',
-            'est_actif' => true
-        ]);
+        echo "✅ Admin créé ou déjà existant\n";
 
-        // Créer un stagiaire
-        $stagiaire = User::create([
-            'nom' => 'Dubois',
-            'prenom' => 'Thomas',
-            'email' => 'stagiaire@pointage.com',
-            'password' => Hash::make('password'),
-            'role' => 'stagiaire',
-            'promotion' => 'DEV-2024',
-            'date_debut' => now(),
-            'est_actif' => true
-        ]);
+        // ✅ Coach
+        $coach = User::firstOrCreate(
+            ['email' => 'coach@pointage.com'],
+            [
+                'nom' => 'Martin',
+                'prenom' => 'Sophie',
+                'password' => Hash::make('Coach@2026!'),
+                'role' => 'coach',
+                'est_actif' => true,
+            ]
+        );
 
-        // Associer le stagiaire au coach
-        $coach->stagiaires()->attach($stagiaire->id);
+        echo "✅ Coach créé ou déjà existant\n";
+
+        // ✅ Stagiaire
+        $stagiaire = User::firstOrCreate(
+            ['email' => 'stagiaire@pointage.com'],
+            [
+                'nom' => 'Dubois',
+                'prenom' => 'Thomas',
+                'password' => Hash::make('Stagiaire@2026!'),
+                'role' => 'stagiaire',
+                'promotion' => 'DEV-2024',
+                'date_debut' => now(),
+                'est_actif' => true,
+            ]
+        );
+
+        echo "✅ Stagiaire créé ou déjà existant\n";
+
+        // ✅ Associer le stagiaire au coach si pas déjà fait
+        if (!$coach->stagiaires()->where('stagiaire_id', $stagiaire->id)->exists()) {
+            $coach->stagiaires()->attach($stagiaire->id);
+            echo "✅ Stagiaire associé au coach\n";
+        } else {
+            echo "✅ Association déjà existante\n";
+        }
     }
 }
