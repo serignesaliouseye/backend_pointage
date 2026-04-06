@@ -121,6 +121,14 @@ echo "🔗 Création du lien storage..."
 php artisan storage:link || true
 
 # ======================
+# ✅ AJOUT : PERMISSIONS POUR STORAGE
+# ======================
+echo ""
+echo "📁 Configuration des permissions pour le stockage..."
+chown -R www-data:www-data $APP_DIR/storage $APP_DIR/public/storage
+chmod -R 775 $APP_DIR/storage $APP_DIR/public/storage
+
+# ======================
 # OPTIMISATION
 # ======================
 echo ""
